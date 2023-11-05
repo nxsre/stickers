@@ -47,14 +47,17 @@ func initialInputsModel(main *model) *inputsModel {
 
 		switch i {
 		case 0:
+			t.Prompt = "账号: "
 			t.Placeholder = "Nickname"
 			t.Focus()
 			t.PromptStyle = focusedStyle
 			t.TextStyle = focusedStyle
 		case 1:
+			t.Prompt = "邮箱: "
 			t.Placeholder = "Email"
 			t.CharLimit = 64
 		case 2:
+			t.Prompt = "密码: "
 			t.Placeholder = "Password"
 			t.EchoMode = textinput.EchoPassword
 			t.EchoCharacter = '•'
@@ -76,10 +79,9 @@ func (m inputsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "esc":
 			m.model.activeComponent = ""
-			return m.model, tea.EnterAltScreen
+			return m.model, tea.ClearScreen
 		case "ctrl+c":
 			return m, tea.Quit
-
 		// 设置光标模式
 		case "ctrl+r":
 			//m.cursorMode++
@@ -93,21 +95,32 @@ func (m inputsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			//return m, tea.Batch(cmds...)
 
 		// Set focus to next input
-		case "tab", "shift+tab", "enter", "up", "down":
+		case "tab", "shift+tab", "enter", "up", "down", "left", "right":
 			s := msg.String()
 
 			if s == "enter" {
-				// 如果当前焦点是最后一个组件（Submit 按钮）
+				// 如果当前焦点是最后一个组件
 				if m.focusIndex == len(m.inputs) {
 					for k, v := range m.inputs {
 						log.Println(k, v.Value())
 					}
-					return m, tea.Quit
+					log.Println("保存")
+					m.model.activeComponent = ""
+					return m.model, tea.ClearScreen
+				}
+
+				if m.focusIndex == len(m.inputs)+1 {
+					for k, v := range m.inputs {
+						log.Println(k, v.Value())
+					}
+					log.Println("取消")
+					m.model.activeComponent = ""
+					return m.model, tea.ClearScreen
 				}
 			}
 
 			// Cycle indexes
-			if s == "up" || s == "shift+tab" {
+			if s == "up" || s == "shift+tab" || s == "left" {
 				m.focusIndex--
 			} else {
 				m.focusIndex++
@@ -159,6 +172,10 @@ func (m *inputsModel) updateInputs(msg tea.Msg) tea.Cmd {
 
 func (m inputsModel) View() string {
 	var b strings.Builder
+
+	for _, v := range m.model.table.GetSelectedRows() {
+		fmt.Fprintf(&b, "%s\n", v[1])
+	}
 
 	for i := range m.inputs {
 		b.WriteString(m.inputs[i].View())

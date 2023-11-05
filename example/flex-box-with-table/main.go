@@ -9,10 +9,10 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/76creates/stickers/flexbox"
-	"github.com/76creates/stickers/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/nxsre/stickers/flexbox"
+	"github.com/nxsre/stickers/table"
 )
 
 var (

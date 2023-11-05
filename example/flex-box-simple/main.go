@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/76creates/stickers/flexbox"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/nxsre/stickers/flexbox"
 )
 
 var (

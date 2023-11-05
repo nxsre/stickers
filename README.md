@@ -1,17 +1,17 @@
 # Stickers 👾
 Is a collection of TUI elements, FlexBox and Table at the moment, its build for [bubbletea](https://github.com/charmbracelet/bubbletea) using [lipgloss](https://github.com/charmbracelet/lipgloss).
 
-![Demo](https://raw.githubusercontent.com/76creates/stickers/master/.github/images/flex-box-with-table.gif)
+![Demo](https://raw.githubusercontent.com/nxsre/stickers/master/.github/images/flex-box-with-table.gif)
 
 ## Flex Box 📦
 Responsive grid box insipred by CSS flexbox.<br>
 Easy to create responsive grids that scale using ratios between these elements.
-![FlexBox Simple Demo](https://raw.githubusercontent.com/76creates/stickers/master/.github/images/flex-box-simple.gif)
+![FlexBox Simple Demo](https://raw.githubusercontent.com/nxsre/stickers/master/.github/images/flex-box-simple.gif)
 
 ## Table 🍰
 Responsive, x/y scrollable, sortable table using FlexBox.<br>
 Tabel viewer with ability to get the content of the cell over which the cursor is placed at and sort the data by column. Sorting supports basic number and string type so number sorting is possible 🎉
-![Table Multi-Type Demo](https://raw.githubusercontent.com/76creates/stickers/master/.github/images/table-multi-type.gif)
+![Table Multi-Type Demo](https://raw.githubusercontent.com/nxsre/stickers/master/.github/images/table-multi-type.gif)
 ##### TODO
 - filtering ✅
 - sorting ✅

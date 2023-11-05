@@ -7,12 +7,11 @@ import (
 	"os"
 	"unicode"
 
-	"github.com/76creates/stickers/flexbox"
-	"github.com/76creates/stickers/table"
-	polaris "github.com/nxsre/polaris-go"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/gocarina/gocsv"
+	"github.com/nxsre/stickers/flexbox"
+	"github.com/nxsre/stickers/table"
 )
 
 type SampleData struct {
@@ -49,12 +48,12 @@ func main() {
 	})
 
 	// read in CSV data
-	//f, err := os.Open("../sample.csv")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//defer f.Close()
-	polaris.
+	f, err := os.Open("../sample.csv")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
 	if err := gocsv.UnmarshalFile(f, &sampleData); err != nil {
 		panic(err)
 	}
@@ -120,22 +119,6 @@ func main() {
 	m.table.MustAddRows(orderedRows)
 
 	// 编辑器表单
-	//r1 := m.editor.NewRow()
-	//r1.AddCells(
-	//	flexbox.NewCell(0, 1).SetContent("1111"),
-	//	flexbox.NewCell(0, 1).SetContent("2222"),
-	//	flexbox.NewCell(0, 1).SetContent("3333"),
-	//	flexbox.NewCell(0, 1).SetContent("4444"),
-	//)
-	//r2 := m.editor.NewRow()
-	//r2.AddCells(
-	//	flexbox.NewCell(0, 1).SetContent("aaaa"),
-	//	flexbox.NewCell(0, 1).SetContent("bbbb"),
-	//	flexbox.NewCell(0, 1).SetContent("cccc"),
-	//	flexbox.NewCell(0, 1).SetContent("dddd"),
-	//)
-	//m.editor.AddRows([]*flexbox.Row{r1, r2})
-
 	m.editor = initialInputsModel(&m)
 
 	p := tea.NewProgram(&m, tea.WithAltScreen())
@@ -145,11 +128,12 @@ func main() {
 	}
 }
 
-func (m *model) Init() tea.Cmd { return nil }
+func (m *model) Init() tea.Cmd {
+	return nil
+}
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.activeComponent == "editor" {
-		log.Println(m.activeComponent)
 		return m.editor.Update(msg)
 	}
 
@@ -161,73 +145,71 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width)
-		m.table.SetHeight(msg.Height - m.infoBox.GetHeight())
+		m.table.SetHeight(msg.Height - m.infoBox.GetHeight() + 1)
 		m.infoBox.SetWidth(msg.Width)
 	case tea.KeyMsg:
 		switch msg.String() {
+		// ctrl+e 编辑选中内容
 		case "ctrl+e":
 			if m.activeComponent == "table" {
 				m.activeComponent = "editor"
 			} else {
 				m.activeComponent = "table"
 			}
-		case "ctrl+r":
-		//	TODO: 刷新表格数据
-		case "ctrl+c":
-			return m, tea.Quit
-		case "down":
-			if m.activeComponent == "table" {
+		}
+		if m.activeComponent == "table" {
+			switch msg.String() {
+			case "ctrl+r":
+			//	TODO: 刷新表格数据
+			case "ctrl+c":
+				return m, tea.Quit
+			case "down":
 				m.table.CursorDown()
-			}
-		case "up":
-			if m.activeComponent == "table" {
+			case "up":
 				m.table.CursorUp()
-			}
-		case "left":
-			if m.activeComponent == "table" {
+			case "left":
 				m.table.CursorLeft()
-			}
-		case "right":
-			if m.activeComponent == "table" {
+			case "right":
 				m.table.CursorRight()
-			}
-		case "ctrl+s":
-			if m.activeComponent == "table" {
+			case "ctrl+s":
 				x, _ := m.table.GetCursorLocation()
 				m.table.OrderByColumn(x)
-			}
-
-		case "ctrl+a":
-			if m.table.SelectedAll() {
-				m.table.UnSelectAll()
-			} else {
-				m.table.SelectAll()
-			}
-			log.Println(m.table.GetSelectedRows())
-		case " ":
-			if m.table.Selected() {
-				m.table.UnSelect()
-			} else {
+			case "ctrl+a":
+				if m.table.SelectedAll() {
+					m.table.UnSelectAll()
+				} else {
+					m.table.SelectAll()
+				}
+				log.Println(m.table.GetSelectedRows())
+			case " ":
+				if m.table.Selected() {
+					m.table.UnSelect()
+				} else {
+					m.table.Select()
+				}
+				log.Println(m.table.GetSelectedRows())
+			// 回车选中当前行同时进入编辑页面，编辑所有选中内容
+			case "enter":
+				if m.activeComponent == "table" {
+					m.activeComponent = "editor"
+				} else {
+					m.activeComponent = "table"
+				}
 				m.table.Select()
-			}
-			log.Println(m.table.GetSelectedRows())
-		case "enter":
-			if m.activeComponent == "table" {
+				return m.editor, tea.EnterAltScreen
 				//selectedValue = m.table.GetCursorValue()
 				//m.infoBox.GetRow(0).GetCell(1).SetContent("\nselected cell: " + selectedValue)
-			}
-		case "backspace":
-			if m.activeComponent == "table" {
+			case "backspace":
 				m.filterWithStr(msg.String())
-			}
-		// esc 键清空过滤条件
-		case "esc":
-			m.table.UnsetFilter()
-		default:
-			if len(msg.String()) == 1 {
-				r := msg.Runes[0]
-				if unicode.IsLetter(r) || unicode.IsDigit(r) {
-					m.filterWithStr(msg.String())
+			// esc 键清空过滤条件
+			case "esc":
+				m.table.UnsetFilter()
+			default:
+				if len(msg.String()) == 1 {
+					r := msg.Runes[0]
+					if unicode.IsLetter(r) || unicode.IsDigit(r) {
+						m.filterWithStr(msg.String())
+					}
 				}
 			}
 		}
@@ -278,13 +260,29 @@ var (
 
 func (m *model) View() string {
 	// 这里控制显示什么内容
-	log.Println("aaaaa")
 	if m.activeComponent == "table" {
 		return lipgloss.JoinVertical(lipgloss.Left, m.table.Render(), m.infoBox.Render())
 	}
 	if m.activeComponent == "editor" {
 		//return lipgloss.JoinVertical(lipgloss.Left, m.editor.Render())
 		return m.editor.View()
+	}
+	{
+		//结合 "github.com/pterm/pterm" 包绘图
+		//s := &strings.Builder{}
+		//pterm.SetDefaultOutput(s)
+		//pterm.DefaultBarChart.WithBars([]pterm.Bar{
+		//	{Label: "A", Value: 10},
+		//	{Label: "B", Value: 20},
+		//	{Label: "C", Value: 30},
+		//	{Label: "D", Value: 40},
+		//	{Label: "E", Value: 50},
+		//	{Label: "F", Value: 40},
+		//	{Label: "G", Value: 30},
+		//	{Label: "H", Value: 20},
+		//	{Label: "I", Value: 10},
+		//}).WithHeight(5).Render()
+		//return s.String()
 	}
 	return ""
 }
