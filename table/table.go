@@ -112,6 +112,9 @@ type Table struct {
 	filteredColumn int
 	filterString   string
 
+	canSelect    bool
+	selectedRows map[any]struct{}
+
 	// orderColumnIndex notes which column is used for sorting
 	// -1 means that no column is sorted
 	orderedColumnIndex int
@@ -148,7 +151,7 @@ type Table struct {
 func NewTable(width, height int, columnHeaders []string) *Table {
 	var columnRatio, columnMinWidth []int
 	for range columnHeaders {
-		columnRatio = append(columnRatio, 1)
+		columnRatio = append(columnRatio, 0)
 		columnMinWidth = append(columnMinWidth, 0)
 	}
 
@@ -174,6 +177,7 @@ func NewTable(width, height int, columnHeaders []string) *Table {
 
 		filteredColumn: -1,
 		filterString:   "",
+		selectedRows:   map[any]struct{}{},
 
 		height: height,
 		width:  width,
@@ -196,6 +200,9 @@ func NewTable(width, height int, columnHeaders []string) *Table {
 // SetRatio replaces the ratio slice, it has to be exactly the len of the headers/rows slices
 // also each value have to be greater than 0, if either fails we panic
 func (r *Table) SetRatio(values []int) *Table {
+	if r.canSelect {
+		values = append(values, 2)
+	}
 	if len(values) != len(r.columnHeaders) {
 		log.Fatalf("ratio list[%d] not of proper length[%d]\n", len(values), len(r.columnHeaders))
 	}
@@ -213,6 +220,9 @@ func (r *Table) SetRatio(values []int) *Table {
 // SetTypes sets the column type, setting this will remove all the rows so make sure you do it when instantiating
 // Table object or add new rows after this, types have to be one of Ordered interface types
 func (r *Table) SetTypes(columnTypes ...any) (*Table, error) {
+	if r.canSelect {
+		columnTypes = append(columnTypes, 0)
+	}
 	if len(columnTypes) != len(r.columnHeaders) {
 		return r, errors.New("column types not the same len as headers")
 	}
@@ -234,6 +244,9 @@ func (r *Table) SetTypes(columnTypes ...any) (*Table, error) {
 // SetMinWidth replaces the minimum width slice, it has to be exactly the len of the headers/rows slices
 // if it's not matching len it will trigger fatal error
 func (r *Table) SetMinWidth(values []int) *Table {
+	if r.canSelect {
+		values = append(values, 1)
+	}
 	if len(values) != len(r.columnHeaders) {
 		log.Fatalf("min width list[%d] not of proper length[%d]\n", len(values), len(r.columnHeaders))
 	}
@@ -306,6 +319,79 @@ func (r *Table) SetFilter(columnIndex int, s string) *Table {
 	return r
 }
 
+func (r *Table) EnableSelect() {
+	if r.canSelect {
+		return
+	}
+	r.columnType = append(r.columnType, "")
+	r.columnHeaders = append(r.columnHeaders, "Selected#")
+	r.columnRatio = append(r.columnRatio, 1)
+	r.columnMinWidth = append(r.columnMinWidth, 1)
+	r.canSelect = true
+}
+
+func (r *Table) Select() {
+	if r.canSelect && len(r.filteredRows) > 0 {
+		r.filteredRows[r.cursorIndexY][len(r.columnHeaders)-1] = "[X]"
+		r.selectedRows[r.filteredRows[r.cursorIndexY][0]] = struct{}{}
+		r.setRowsUpdate()
+	}
+}
+
+// Selected 判断是否以选中当前行
+func (r *Table) Selected() bool {
+	_, ok := r.selectedRows[r.filteredRows[r.cursorIndexY][0]]
+	return ok
+}
+
+// SelectedAll 判断是否全选
+func (r *Table) SelectedAll() bool {
+	for _, row := range r.filteredRows {
+		if _, ok := r.selectedRows[row[0]]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *Table) UnSelect() {
+	if r.canSelect {
+		r.filteredRows[r.cursorIndexY][len(r.columnHeaders)-1] = "[ ]"
+		delete(r.selectedRows, r.filteredRows[r.cursorIndexY][0])
+		r.setRowsUpdate()
+	}
+}
+
+func (r *Table) SelectAll() {
+	if r.canSelect {
+		for k, row := range r.filteredRows {
+			r.filteredRows[k][len(r.columnHeaders)-1] = "[X]"
+			r.selectedRows[row[0]] = struct{}{}
+		}
+		r.setRowsUpdate()
+	}
+}
+
+func (r *Table) UnSelectAll() {
+	if r.canSelect {
+		for k, row := range r.filteredRows {
+			r.filteredRows[k][len(r.columnHeaders)-1] = "[ ]"
+			delete(r.selectedRows, row[0])
+		}
+		r.setRowsUpdate()
+	}
+}
+
+func (r *Table) GetSelectedRows() [][]any {
+	rows := [][]any{}
+	for _, row := range r.filteredRows {
+		if _, ok := r.selectedRows[row[0]]; ok {
+			rows = append(rows, row)
+		}
+	}
+	return rows
+}
+
 // GetFilter returns string used for filtering and the column index
 // TODO: enable multi column filtering
 func (r *Table) GetFilter() (columnIndex int, s string) {
@@ -357,6 +443,16 @@ func (r *Table) GetCursorLocation() (int, int) {
 	return r.cursorIndexX, r.cursorIndexY
 }
 
+// GetValue returns the string of the cell
+func (r *Table) GetValue(row, col int) string {
+	return getStringFromOrdered(r.filteredRows[row][col])
+}
+
+// GetRawValue returns any of the cell
+func (r *Table) GetRawValue(row, col int) any {
+	return r.filteredRows[row][col]
+}
+
 // GetCursorValue returns the string of the cell under the cursor
 func (r *Table) GetCursorValue() string {
 	// handle 0 rows situation and when table is not active
@@ -364,6 +460,12 @@ func (r *Table) GetCursorValue() string {
 		return ""
 	}
 	return getStringFromOrdered(r.filteredRows[r.cursorIndexY][r.cursorIndexX])
+}
+
+// GetCursorValue returns the string of the cell under the cursor
+func (r *Table) SetValue(row, col int, val any) {
+	r.filteredRows[row][col] = val
+	r.setRowsUpdate()
 }
 
 // AddRows add multiple rows, will return error on the first instance of a row that does not match the type set on table
@@ -377,6 +479,9 @@ func (r *Table) AddRows(rows [][]any) (*Table, error) {
 	}
 	// append rows
 	for _, row := range rows {
+		if r.canSelect {
+			row = append(row, "[ ]")
+		}
 		r.rows = append(r.rows, row)
 	}
 
@@ -441,7 +546,8 @@ func (r *Table) Render() string {
 		lipgloss.Left,
 		r.headerBox.Render(),
 		r.rowsBox.Render(),
-		r.styles[TableFooterStyleKey].Width(r.width).Render(statusMessage),
+		//r.styles[TableFooterStyleKey].Width(r.width).Render(statusMessage),
+		//r.styles[TableFooterStyleKey].Width(r.width).Render(),
 	)
 }
 
@@ -465,6 +571,9 @@ func (r *Table) unsetHeadersUpdate() {
 // and header types per cell as well
 func (r *Table) validateRow(cells ...any) error {
 	var message string
+	if r.canSelect {
+		cells = append(cells, 1)
+	}
 	// check row len
 	if len(cells) != len(r.columnType) {
 		message = fmt.Sprintf(
